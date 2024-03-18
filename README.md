@@ -3,11 +3,13 @@ National Wildlife Federation
 
 Accessing, processing, documenting wildlife and environmental datasets for the National Wildlife Federation
 
+### Environment Set-up
 
-### Link in the data
-
-Client data should already be loaded into the repo or a shared Cloud Storage bucket for the team. To get started with copying data in and out of the bucket, use the [gsutil command](https://cloud.google.com/storage/docs/quickstart-gsutil#upload_an_object_into_your_bucket) from the terminal or the [GCS Python API](https://googleapis.dev/python/storage/latest/client.html), both of which are pre-installed. 
-
+Step 0: Ensure you have a python 3.9 installation on your external machine
+Step 1: Install virtualenv if you haven't already with `pip install virtual-env`
+Step 2: Create a venv with `virtualenv .venv`
+Step 3: Active the envirornment with `source .venv/bin/activate`
+Step 4: Install from requirements with `pip install -r requirements.txt`
 
 ### Git stuff 
 
