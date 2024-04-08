@@ -19,3 +19,4 @@ rasterio==1.2.6
 fiona==1.8.20
 pyproj==3.2.1
 ipykernel == 6.29.3
+requests-oauthlib == 2.0.0
