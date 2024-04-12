@@ -5,11 +5,10 @@ Accessing, processing, documenting wildlife and environmental datasets for the N
 
 ### Environment Set-up
 
-Step 0: Ensure you have a python 3.9 installation on your external machine
-Step 1: Install virtualenv if you haven't already with `pip install virtual-env`
-Step 2: Create a venv with `virtualenv .venv`
-Step 3: Active the envirornment with `source .venv/bin/activate`
-Step 4: Install from requirements with `pip install -r requirements.txt`
+Step 0: Ensure you have a python 3.9 or higher installation on your external machine
+Step 1: Install poerty if you haven't by following the instructions [here](https://python-poetry.org/docs/#installing-with-the-official-installer)
+Step 2: INstall the depencies with `poetry install`
+Step 3: Ensure the envirornment has been installed by running `poetry shell`
 
 ### Git stuff 
 
@@ -17,9 +16,9 @@ We encourage people to follow the git feature branch workflow which you can read
 
 For each feature you are adding to the code 
 
-1. Switch to the master branch and pull the most recent changes 
+1. Switch to the main branch and pull the most recent changes 
 ```
-git checkout master 
+git checkout main 
 git pull
 ```
 

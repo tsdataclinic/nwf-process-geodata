@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "nwf-process-geodata"
+version = "0.1.0"
+description = ""
+authors = ["CanyonFoot <canyon.foot@twosigma.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+numpy = "^1.26.4"
+pandas = "^2.2.1"
+matplotlib = "^3.8.4"
+geopandas = "^0.14.3"
+shapely = "^2.0.3"
+rasterio = "^1.3.9"
+fiona = "^1.9.6"
+pyproj = "^3.6.1"
+ipykernel = "^6.29.4"
+requests-oauthlib = "^2.0.0"
+boto3 = "^1.34.80"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
