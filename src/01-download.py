@@ -33,6 +33,7 @@ def download_to_local(url):
 def upload_to_s3(local_path, s3_path):
     """
     Uploads a file from a local directory to an Amazon S3 bucket.
+    The local file should probably be deleted.
     
     Parameters:
     - local_path: str, the path to the file on the local file system.

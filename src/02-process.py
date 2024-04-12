@@ -19,6 +19,9 @@ def intersect_with_wyoming_boundaries(gdf, wyoming_gdf):
     Parameters:
     - gdf: GeoDataFrame, the dataset to be trimmed
     - wyoming_gdf: GeoDataFrame, boundaries of Wyoming
+
+    Returns:
+    - GeoDataFrame, the trimmed dataframe
     """
     # Implement intersection logic
     pass
@@ -30,6 +33,9 @@ def reproject(gdf, output_crs=4362):
     Parameters:
     - gdf: GeoDataFrame, the dataset to reproject
     - output_crs: int, EPSG code for the target CRS
+
+    Returns:
+    - GeoDataFrame, the reprojected dataframe
     """
     # Implement reprojection logic
     pass
