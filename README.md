@@ -3,12 +3,25 @@ National Wildlife Federation
 
 Accessing, processing, documenting wildlife and environmental datasets for the National Wildlife Federation
 
+### Project Description
+
+The National Wildlife Federation (NWF) is a large non-profit dedicated to conservation and wildlife advocacy. NWF is working with another organization to create an interactive mapping tool that shows the intersection of potential carbon management project with wildlife and envirornmental considerations in the state of Wyoming. Data Clinic is tasked with finding and processing these wildlife and envirornmental datasets and providing them to NWF. NWF has given us a [spreadsheet](https://docs.google.com/spreadsheets/d/1qZX01JpzITLJDCWByWUadBp64f7d0Il5FQknywnsXpQ/edit#gid=0) outlining the desired datasets, which we have augmented with additional metadata.
+
+The data pipeline we build will contain a few distinct steps, with each step depending on the previous. Roughly, these steps are:
+
+1.  **Access data and upload to s3**
+    - The metadata spreadsheet contains links to APIs and hosted files matching the requested datasets. The code in `01-download.py` should iterate through the datasets with links and download each locally before uploading to the `nwf-dataclinic` s3 bucket.
+2.  **Simple data processing**
+    - The raw data on s3 will have different file formats, projects, and extents. We want to provide NWF with data that has been minimally processed to ensure compatibility. The code in `02-process.py` should traverse the raw datasets and apply these basic processing steps and save the results to s3.
+3.  **Documenting processed data**
+    - The final step is to create simple documentation for each dataset. These should be pdf files generated for each processed dataset. These documents will contain information from the metadata, such as dataset description, licence, years covered, etc. as well as some additional information dervived from the data itself such as column names/types and number of rows. The code in `03-document.py` will iterate through the processed datasets and create the documentation for each.
+
 ### Environment Set-up
 
-Step 0: Ensure you have a python 3.9 or higher installation on your external machine
-Step 1: Install poerty if you haven't by following the instructions [here](https://python-poetry.org/docs/#installing-with-the-official-installer)
-Step 2: INstall the depencies with `poetry install`
-Step 3: Ensure the envirornment has been installed by running `poetry shell`
+1.  Ensure you have a python 3.9 or higher installation on your external machine
+2.  Install poetry following the instructions [here](https://python-poetry.org/docs/#installing-with-the-official-installer)
+3.  From the root project directory, install the depencies with `poetry install`
+4.  Ensure the envirornment has been installed by running `poetry shell`. You should see something like `(nwf-process-geodata-py3.9)` in your terminal. 
 
 ### Git stuff 
 
@@ -42,78 +55,5 @@ git push -u origin cleaning_script
 8. Repeat
 9. ...
 10. Profit.
-
-Project Organization
-------------
-
-Data Clinic projects are a little different form internal Two Sigma projects. We work with external partners 
-who will either be the ones who we hope will take our work and use it in their day to day missions to 
-empower the communities they serve. We also try to open source as much of our analysis as possible 
-to enable others to build on what we have done. 
-
-Because these wider audiences will have to deal with the code / analysis we write potentially long after 
-all our volunteers have moved on, we try to adhere to some best practises while working on a project.
-
-To that end we have adopted the Data Science Cookie cutter approach to project structure. The full 
-structure is described in detail in the next section but some major guidelines are:
-
-1. Data should be immutable. Datafiles should not be modified in place ever especially the data in RAW. Instead 
-scripts should be written that reads in data from a previous step and outputs the results to a new file. 
-
-2. Treat analysis as code in a DAG: Each script should build on those that go before it, reading in data from 
-the raw data files and from interim data files and generating new datasets. It shouldn't be required for you 
-to run a processing stage again once it has been run. The make file is a good way to ensure this.
-
-3. Notebooks should be for exploration and communication. Try to keep processing code out of notebooks especially 
-code that can be used in multiple parts of the analysis. Instead add that code to the robinhood module. In general
-someone coming to the project fresh should be able to recreate the analysis using nothing but the code in the robinhood 
-directory and data in the data directory. An example notebook for how to access the module can be found in notebooks/Examples.ipynb
-
-
-Directory Structure:
-
-    ├── LICENSE
-    ├── Makefile           <- Makefile with commands like `make data` or `make train`
-    ├── README.md          <- The top-level README for developers using this project.
-    ├── data
-    │   ├── external       <- Data from third party sources.
-    │   ├── interim        <- Intermediate data that has been transformed.
-    │   ├── processed      <- The final, canonical data sets for modeling.
-    │   └── raw            <- The original, immutable data dump.
-    │
-    ├── models             <- Trained and serialized models, model predictions, or model summaries
-    │
-    ├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-    │                         the creator's initials, and a short `-` delimited description, e.g.
-    │                         `1.0-jqp-initial-data-exploration`.
-    │
-    ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-    │
-    ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-    │   └── figures        <- Generated graphics and figures to be used in reporting
-    │
-    ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-    │                         generated with `pip freeze > requirements.txt`
-    │
-    ├── setup.py           <- makes project pip installable (pip install -e .) so src can be imported
-    ├── src                <- Source code for use in this project.
-    │   ├── __init__.py    <- Makes src a Python module
-    │   │
-    │   ├── data           <- Scripts to download or generate data
-    │   │   └── make_dataset.py
-    │   │
-    │   ├── features       <- Scripts to turn raw data into features for modeling
-    │   │   └── build_features.py
-    │   │
-    │   ├── models         <- Scripts to train models and then use trained models to make
-    │   │   │                 predictions
-    │   │   ├── predict_model.py
-    │   │   └── train_model.py
-    │   │
-    │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
-    │       └── visualize.py
-
-
---------
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
