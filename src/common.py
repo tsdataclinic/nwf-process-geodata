@@ -3,7 +3,7 @@ import json
 
 SECRETS_PATH = "secrets/aws_secrets.json"
 BUCKET_NAME = "dataclinic-nwf"
-TARGET_CRS = 4362
+TARGET_CRS = 4326
 
 
 def get_aws_creds() -> dict[str, str]:

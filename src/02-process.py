@@ -2,7 +2,7 @@
 import io
 import os
 import geopandas as gpd
-from common import TARGET_CRS, get_s3_client, BUCKET_NAME
+from src.common import TARGET_CRS, get_s3_client, BUCKET_NAME
 from tqdm import tqdm
 import boto3
 
@@ -132,4 +132,4 @@ class Processor:
 
 
 if __name__ == "__main__":
-    Processor().process_raw_datasets(overwrite=False)
+    Processor().process_raw_datasets(overwrite=True)
