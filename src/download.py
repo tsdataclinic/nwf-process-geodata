@@ -119,10 +119,12 @@ class DataDownloaderUploader:
                 continue
             path: str | None = self._create_path(row)
             if path:
+                self.metadata_df.at[_, 's3_raw_path'] = path  
                 if overwrite or not self._exists_in_s3(path):
                     local_path: str | None = self._download_to_local(download_url, path)
                     if local_path:
                         self._upload_to_s3(local_path, path)
+        self.metadata_df.to_csv("output_metadata.csv")
 
 if __name__ == "__main__":
     DataDownloaderUploader().download_and_upload_main()

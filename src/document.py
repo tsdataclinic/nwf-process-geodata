@@ -11,3 +11,13 @@ from src.common import TARGET_CRS, get_s3_client, BUCKET_NAME
 
 import requests
 from urllib.error import HTTPError
+
+
+
+class DataDocumenter:
+
+    def __init__(self):
+        self.s3 = get_s3_client()
+
+    def document_processed_data(self):
+        pass
