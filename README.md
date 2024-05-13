@@ -10,11 +10,11 @@ The National Wildlife Federation (NWF) is a large non-profit dedicated to conser
 The data pipeline we build will contain a few distinct steps, with each step depending on the previous. Roughly, these steps are:
 
 1.  **Access data and upload to s3**
-    - The metadata spreadsheet contains links to APIs and hosted files matching the requested datasets. The code in `01-download.py` should iterate through the datasets with links and download each locally before uploading to the `nwf-dataclinic` s3 bucket.
+    - The metadata spreadsheet contains links to APIs and hosted files matching the requested datasets. The code in `download.py` should iterate through the datasets with links and download each locally before uploading to the `nwf-dataclinic` s3 bucket.
 2.  **Simple data processing**
-    - The raw data on s3 will have different file formats, projects, and extents. We want to provide NWF with data that has been minimally processed to ensure compatibility. The code in `02-process.py` should traverse the raw datasets and apply these basic processing steps and save the results to s3.
+    - The raw data on s3 will have different file formats, projects, and extents. We want to provide NWF with data that has been minimally processed to ensure compatibility. The code in `process.py` should traverse the raw datasets and apply these basic processing steps and save the results to s3.
 3.  **Documenting processed data**
-    - The final step is to create simple documentation for each dataset. These should be pdf files generated for each processed dataset. These documents will contain information from the metadata, such as dataset description, licence, years covered, etc. as well as some additional information dervived from the data itself such as column names/types and number of rows. The code in `03-document.py` will iterate through the processed datasets and create the documentation for each.
+    - The final step is to create simple documentation for each dataset. These should be pdf files generated for each processed dataset. These documents will contain information from the metadata, such as dataset description, licence, years covered, etc. as well as some additional information dervived from the data itself such as column names/types and number of rows. The code in `document.py` will iterate through the processed datasets and create the documentation for each.
 
 ### Environment Set-up
 
