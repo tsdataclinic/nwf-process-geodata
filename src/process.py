@@ -8,7 +8,8 @@ import boto3
 
 # Permitted suffixes for reading geopandas datasets.
 PERMITTED_SUFFIXES = (".geojson", ".zip")
-
+SPECIAL_CASE_KEYS = ["data/raw/climate_change_indicators/extreme_heat/loca_extreme_temperature_forecast.tar.gz",
+                     ]
 
 class Processor:
 

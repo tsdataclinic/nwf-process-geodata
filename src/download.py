@@ -95,7 +95,14 @@ class DataDownloaderUploader:
         subdir: str | None = "/".join(["data", "raw", category, subtype, individual]) if category and subtype and individual else None
         if subdir:
             fmt: str = metadata_row["format"]
-            ext: str | None = ".geojson" if fmt == "geojson" else ".zip" if fmt == "shapefile" else None
+            format_to_extension = {
+            "geojson": ".geojson",
+            "shapefile": ".zip",
+            "gdb": ".zip",
+            "tar.gz": ".tar.gz"}
+            ext: str = format_to_extension.get(fmt)  # Returns None if fmt is not found
+            #if subdir and ext: print(subdir + ext)
+
         return subdir + ext if subdir and ext else None
 
     def _to_dir(self, val):
