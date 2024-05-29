@@ -16,7 +16,8 @@ class DataDocumenter:
     def __init__(self) -> None:
         self.s3 = get_s3_client()
         self.metadata = pd.read_csv("./output_metadata.csv")
-        self.metadata = self.metadata.fillna("Information not found")
+        self.metadata = self.metadata.fillna("Not found")
+        self.wyoming_area = gpd.read_file("wyoming.geojson").to_crs(32045).area
 
     def _read_s3_gdf(self, key: str) -> gpd.GeoDataFrame:
         obj = self.s3.get_object(Bucket=BUCKET_NAME, Key=key)
@@ -52,7 +53,10 @@ class DataDocumenter:
         pdf = self._add_text_box(pdf, "Homeage link",  f"[{row.homepage.iloc[0]}]({row.homepage.iloc[0]})")
         pdf = self._add_text_box(pdf, "Data download link",  f"[{row.data_link.iloc[0]}]({row.data_link.iloc[0]})")
         pdf = self._add_text_box(pdf, "Metadata link",  f"[{row.metadata_link.iloc[0]}]({row.metadata_link.iloc[0]})")
+        pdf = self._add_text_box(pdf, "Data as of year", row.as_of_year.astype(int).iloc[0])
+        pdf = self._add_text_box(pdf, "Data clinic team notes", row.notes.iloc[0])
         pdf = self._add_text_box(pdf, "Data license/use constraints", row.use_constraints.iloc[0])
+
 
         return pdf
 
@@ -69,20 +73,22 @@ class DataDocumenter:
     def _add_data_content(self, pdf, gdf):
         self._add_text_box(pdf, title="Dataset features", text = ', '.join(gdf.columns))
         self._add_text_box(pdf, title="Number of rows", text = str(gdf.shape[0]))
+        self._add_text_box(pdf, title="Geometry types", text = str(gdf.geometry.geom_type.value_counts()))
+        self._add_text_box(pdf, title="Percent of Wyoming area covered", text = str(round(100 * gdf.to_crs(32045).area.sum() / self.wyoming_area, 1)))
 
         return pdf
 
     def _add_map(self, pdf, gdf):
-        pdf.set_font('helvetica', size=12, style = 'B')
-        pdf.multi_cell(200, 10, text = "Plot of geometry feature",  new_x="LMARGIN", new_y="NEXT", align = 'L')
+        pdf.set_font('helvetica', size=12, style='B')
+        pdf.multi_cell(200, 10, text="Plot of geometry feature", new_x="LMARGIN", new_y="NEXT", align='L')
 
         plt.ioff()  
-        plt.figure()
-        gdf.plot()
+        fig, ax = plt.subplots()  # Create a new figure and axis
+        gdf.plot(ax=ax)
 
         img_buf = BytesIO()
-        plt.savefig(img_buf, dpi=200)
-        plt.close()
+        fig.savefig(img_buf, dpi=200)
+        plt.close(fig)  # Close the figure explicitly
 
         pdf.image(img_buf, w=pdf.epw)
         img_buf.close()
