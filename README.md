@@ -16,6 +16,8 @@ The data pipeline we build will contain a few distinct steps, with each step dep
 3.  **Documenting processed data**
     - The final step is to create simple documentation for each dataset. These should be pdf files generated for each processed dataset. These documents will contain information from the metadata, such as dataset description, licence, years covered, etc. as well as some additional information dervived from the data itself such as column names/types and number of rows. The code in `document.py` will iterate through the processed datasets and create the documentation for each.
 
+These steps are composed in `run.py` - which also exports the full contents of the repository to a specified local folder.
+
 ### Environment Set-up
 
 1.  Ensure you have a python 3.9 or higher installation on your external machine
