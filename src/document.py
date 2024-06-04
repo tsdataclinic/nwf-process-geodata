@@ -19,6 +19,9 @@ class DataDocumenter:
         self.metadata = self.metadata.fillna("Not found")
         self.wyoming_area = gpd.read_file("wyoming.geojson").to_crs(32045).area
 
+    def _remove_unsupported_characters(self, text):
+        return ''.join([char for char in text if char.encode('latin-1', 'ignore')])
+
     def _read_s3_gdf(self, key: str) -> gpd.GeoDataFrame:
         obj = self.s3.get_object(Bucket=BUCKET_NAME, Key=key)
         return gpd.read_file(io.BytesIO(obj["Body"].read()))
@@ -28,7 +31,6 @@ class DataDocumenter:
         for item in resp.get('Contents', []):
             path = item['Key']
             if path.startswith('data/processed') and not path.endswith('.pdf'):
-                print(path)
                 row = self.metadata[self.metadata['s3_raw_path'].replace('.zip', '.geojson') == path.replace('processed', 'raw')]
                 if row.shape[0] == 1:
                     self._assemble_and_write_pdf(row, path)
@@ -61,8 +63,8 @@ class DataDocumenter:
         return pdf
 
     def _add_text_box(self, pdf, title, text):
-        title = str(title)
-        text = str(text)
+        title = self._remove_unsupported_characters(str(title))
+        text = self._remove_unsupported_characters(str(text))
         pdf.set_font('helvetica', size=12, style = 'B')
         pdf.multi_cell(200, 10, text = title,  new_x="LMARGIN", new_y="NEXT", align = 'L')
         pdf.set_font('helvetica', size=12)
