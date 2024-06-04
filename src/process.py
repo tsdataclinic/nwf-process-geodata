@@ -72,17 +72,19 @@ class Processor:
             return
         self._write_processed(gdf, self._to_processed_key(raw_key))
 
-    def is_processed(self, raw_key: str) -> bool:
+    def is_processed(self, raw_key: str, fmt = "geojson") -> bool:
         return self._to_processed_key(raw_key) in self.processed_keys
 
     def _read_s3_gdf(self, key: str) -> gpd.GeoDataFrame:
         obj = self.s3.get_object(Bucket=BUCKET_NAME, Key=key)
         return gpd.read_file(io.BytesIO(obj["Body"].read()))
 
-    def _to_processed_key(self, raw_key: str) -> str:
+    def _to_processed_key(self, raw_key: str, fmt = "geojson") -> str:
         # 1 => Only replace the first occurrence of 'raw' in the path with 'processed'
-        return raw_key.replace("raw", "processed", 1)
+        processed_key = raw_key.replace("raw", "processed", 1)
+        processed_key = ".".join(processed_key.split(".")[:-1] + [fmt])
 
+        return processed_key
     def _intersect_with_wyoming_boundaries(self, gdf: gpd.GeoDataFrame):
         """
         Intersects the GeoDataFrame with Wyoming boundaries to trim excess areas.
@@ -117,7 +119,6 @@ class Processor:
         - processed_key: str, path to save to
         - format: str, file format for output, default is 'geojson'
         """
-        processed_key = ".".join(processed_key.split(".")[:-1] + [fmt])
         self._write_s3_gdf(gdf, processed_key, fmt)
 
     def _write_s3_gdf(self, gdf: gpd.GeoDataFrame, key: str, fmt="geojson"):
