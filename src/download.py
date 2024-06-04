@@ -28,14 +28,14 @@ class DataDownloaderUploader:
             else:
                 raise
         return True
-    
+
     def _download_to_local(self, url: str, path: str):
         """
         Retrieves a file from a specified URL and saves it locally.
-        
+
         Parameters:
         - url: str, the URL from which the file will be downloaded.
-        
+
         Returns:
         - str, the path to the locally saved file.
         """
@@ -51,13 +51,22 @@ class DataDownloaderUploader:
             print(f"Failed to download {url} - {e}")
             return None
         return path
-    
+
     def _download_geojson(self, url: str, path: str) -> None:
         offset = 0
         batch_sz = 1000
         downloaded = {"type": "FeatureCollection", "features": []}
         while True:
-            response = requests.get(url.split("?")[0], params={"where": "1=1", "outFields": "*", "f": "geojson", "resultOffset": offset, "resultRecordCount": batch_sz})
+            response = requests.get(
+                url.split("?")[0],
+                params={
+                    "where": "1=1",
+                    "outFields": "*",
+                    "f": "geojson",
+                    "resultOffset": offset,
+                    "resultRecordCount": batch_sz,
+                },
+            )
             data = response.json()
             downloaded["features"].extend(data["features"])
             if len(data["features"]) < batch_sz:
@@ -70,7 +79,7 @@ class DataDownloaderUploader:
         """
         Uploads a file from a local directory to an Amazon S3 bucket.
         The local file should probably be deleted.
-        
+
         Parameters:
         - local_path: str, the path to the file on the local file system.
         - s3_path: str, the target path in the S3 bucket where the file will be uploaded.
@@ -82,31 +91,43 @@ class DataDownloaderUploader:
     def _create_path(self, metadata_row: pd.Series):
         """
         Constructs an S3 path for a file based on the metadata categories provided in a DataFrame row.
-        
+
         Parameters:
         - metadata_row: Series, a row from the metadata DataFrame containing category information for path construction.
-        
+
         Returns:
         - str, the constructed S3 path.
         """
         category: str | None = self._to_dir(metadata_row["New Category"])
         subtype: str | None = self._to_dir(metadata_row["Subtype"])
         individual: str | None = self._to_dir(metadata_row["Individual"])
-        subdir: str | None = "/".join(["data", "raw", category, subtype, individual]) if category and subtype and individual else None
+        subdir: str | None = (
+            # Use individual twice to have each file in its own directory.
+            # This is useful for adding documentation to the same folder
+            # in a downstream step.
+            "/".join(["data", "raw", category, subtype, individual, individual])
+            if category and subtype and individual
+            else None
+        )
         if subdir:
             fmt: str = metadata_row["format"]
             format_to_extension = {
-            "geojson": ".geojson",
-            "shapefile": ".zip",
-            "gdb": ".zip",
-            "tar.gz": ".tar.gz"}
+                "geojson": ".geojson",
+                "shapefile": ".zip",
+                "gdb": ".zip",
+                "tar.gz": ".tar.gz",
+            }
             ext: str = format_to_extension.get(fmt)  # Returns None if fmt is not found
-            #if subdir and ext: print(subdir + ext)
+            # if subdir and ext: print(subdir + ext)
 
         return subdir + ext if subdir and ext else None
 
     def _to_dir(self, val):
-        return val.strip().lower().replace(" ", "_").replace("/", "_") if not pd.isna(val) else None
+        return (
+            val.strip().lower().replace(" ", "_").replace("/", "_")
+            if not pd.isna(val)
+            else None
+        )
 
     def download_and_upload_main(self, overwrite: bool = False) -> None:
         """
@@ -126,12 +147,13 @@ class DataDownloaderUploader:
                 continue
             path: str | None = self._create_path(row)
             if path:
-                self.metadata_df.at[_, 's3_raw_path'] = path  
+                self.metadata_df.at[_, "s3_raw_path"] = path
                 if overwrite or not self._exists_in_s3(path):
                     local_path: str | None = self._download_to_local(download_url, path)
                     if local_path:
                         self._upload_to_s3(local_path, path)
         self.metadata_df.to_csv("output_metadata.csv")
+
 
 if __name__ == "__main__":
     DataDownloaderUploader().download_and_upload_main()
