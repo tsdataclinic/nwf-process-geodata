@@ -24,7 +24,7 @@ class s3Exporter():
         if not os.path.exists(local_download_dir):
             os.makedirs(local_download_dir)
 
-        for item in bucket_contents['Contents']:
+        for item in tqdm(bucket_contents['Contents']):
             file_name = item['Key']
             file_path = os.path.join(local_download_dir, file_name)
 
