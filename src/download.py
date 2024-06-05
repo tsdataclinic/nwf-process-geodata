@@ -8,7 +8,7 @@ import urllib.request
 import os
 from src.common import TARGET_CRS, get_s3_client, BUCKET_NAME
 from tqdm import tqdm
-
+from zipfile import ZipFile 
 import requests
 from urllib.error import HTTPError
 
@@ -29,32 +29,50 @@ class DataDownloaderUploader:
                 raise
         return True
 
-    def _download_to_local(self, url: str, path: str):
-        """
-        Retrieves a file from a specified URL and saves it locally.
+    def _extract_layer_from_zip(self, zip_path, layer_to_extract, output_dir):
+        with ZipFile(zip_path, 'r') as z:
+            file_list = z.namelist()
+            for file in file_list:
+                if file.endswith(layer_to_extract):
+                    z.extract(file, path=output_dir)
+                    return os.path.join(output_dir, file)
+            raise ValueError(f"Layer {layer_to_extract} not found in {zip_path}")
 
-        Parameters:
-        - url: str, the URL from which the file will be downloaded.
+    def _download_census_water(self, path):
+        counties = ["001", "003", "005", "007", "009", "011", "013", "015", "017", "019", "021", "023", "025", "027", "029", "031", "033", "035", "037", "039", "041", "043", "045"]
 
-        Returns:
-        - str, the path to the locally saved file.
-        """
+        gdfs = []
+        for county in counties:
+            url = f"https://www2.census.gov/geo/tiger/TIGER2023/AREAWATER/tl_2023_56{county}_areawater.zip"
+            gdf = gpd.read_file(url)
+            gdfs.append(gdf)
+
+        full_water = pd.concat(gdfs)
+        full_water.to_file(path)
+
+    def _download_to_local(self, url: str, path: str, layer_to_extract=None):
         try:
             dir = os.path.dirname(path)
             if not os.path.exists(dir):
                 os.makedirs(dir)
-            if path.endswith(".geojson"):
+            if url == "https://www2.census.gov/geo/tiger/TIGER2023/AREAWATER/":
+                self._download_census_water(path)
+            elif path.endswith(".geojson"):
                 self._download_geojson(url, path)
             else:
                 urllib.request.urlretrieve(url, path)
-        except HTTPError as e:
-            print(f"Failed to download {url} - {e}")
+            if layer_to_extract:
+                return self._extract_layer_from_zip(path, layer_to_extract, dir)
+        except (HTTPError, ValueError) as e:
+            print(f"Failed to download or extract {url} - {e}")
             return None
         return path
 
     def _download_geojson(self, url: str, path: str) -> None:
         offset = 0
         batch_sz = 1000
+        if url.startswith("https://services1"):
+            batch_sz = 2000
         downloaded = {"type": "FeatureCollection", "features": []}
         while True:
             response = requests.get(
@@ -116,6 +134,8 @@ class DataDownloaderUploader:
                 "shapefile": ".zip",
                 "gdb": ".zip",
                 "tar.gz": ".tar.gz",
+                "zipped img": ".img",
+                "zipped tif": ".tif"
             }
             ext: str = format_to_extension.get(fmt)  # Returns None if fmt is not found
             # if subdir and ext: print(subdir + ext)
@@ -143,13 +163,16 @@ class DataDownloaderUploader:
         """
         for _, row in tqdm(self.metadata_df.iterrows()):
             download_url = row["data_link"]
+            layer_to_extract = None
+            if row["format"] == "zipped img" or row["format"] == "zipped tif":
+                layer_to_extract = row["layer"]
             if pd.isna(download_url):
                 continue
             path: str | None = self._create_path(row)
             if path:
                 self.metadata_df.at[_, "s3_raw_path"] = path
                 if overwrite or not self._exists_in_s3(path):
-                    local_path: str | None = self._download_to_local(download_url, path)
+                    local_path: str | None = self._download_to_local(download_url, path, layer_to_extract)
                     if local_path:
                         self._upload_to_s3(local_path, path)
         self.metadata_df.to_csv("output_metadata.csv")
