@@ -16,9 +16,11 @@ The data pipeline we build will contain a few distinct steps, with each step dep
 3.  **Documenting processed data**
     - The final step is to create simple documentation for each dataset. These should be pdf files generated for each processed dataset. These documents will contain information from the metadata, such as dataset description, licence, years covered, etc. as well as some additional information dervived from the data itself such as column names/types and number of rows. The code in `document.py` will iterate through the processed datasets and create the documentation for each.
 
-These steps are composed in `run.py` - which also exports the full contents of the repository to a specified local folder.
+These steps are composed in `run.py` - which also exports the full contents of the repository to a specified local folder. You can run the full pipeline by executing `poetry run python3 run.py` (or by running the script from the envirornment of your choice).
 
-### Environment Set-up
+### Poetry Environment Set-up
+
+This project uses Poetry to provide an easy way to manage dependencies. You can set it up by following these steps:
 
 1.  Ensure you have a python 3.9 or higher installation on your external machine
 2.  Install poetry following the instructions [here](https://python-poetry.org/docs/#installing-with-the-official-installer)

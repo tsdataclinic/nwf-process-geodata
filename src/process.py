@@ -4,12 +4,20 @@ import os
 import geopandas as gpd
 from src.common import TARGET_CRS, get_s3_client, BUCKET_NAME
 from tqdm import tqdm
-import boto3
-
+import tempfile
+from rasterio.mask import mask
+import zipfile
+from rasterio.warp import calculate_default_transform, reproject, Resampling
+from src.process_LOCA import main_process_LOCA
 # Permitted suffixes for reading geopandas datasets.
-PERMITTED_SUFFIXES = (".geojson", ".zip")
-SPECIAL_CASE_KEYS = ["data/raw/climate_change_indicators/extreme_heat/loca_extreme_temperature_forecast.tar.gz",
-                     ]
+PERMITTED_SUFFIXES = (".geojson", ".zip", ".tif", ".img", ".tar.gz")
+
+SPECIAL_CASE_KEYS = ["data/raw/climate_change_indicators/flooding/loca_precipitation/loca_precipitation.tar.gz",
+                     "data/raw/climate_change_indicators/extreme_heat/loca_extreme_temperature_forecast/loca_extreme_temperature_forecast.tar.gz",
+                     "data/raw/climate_change_indicators/drought/loca_dry_days_forecast/loca_dry_days_forecast.tar.gz"]
+
+GDBs = {"data/raw/crucial_critical/blm/areas_of_critical_environmental_concern/areas_of_critical_environmental_concern.zip" : "a00000028.gdbtable", 
+        "data/raw/climate_change_indicators/flooding/fema_nfhl/fema_nfhl.zip" : "a00000015.gdbtable"}
 
 class Processor:
 
@@ -62,7 +70,24 @@ class Processor:
             except Exception as e:
                 print(f"Error processing {raw_key}: {e}")
 
-    def _process_raw_dataset(self, raw_key: str):
+    def _process_raw_dataset(self, raw_key):
+        if raw_key.endswith((".img", ".tif")):
+           print(f"Copying raster {raw_key}")
+           self.s3.copy_object(
+            Bucket=BUCKET_NAME,
+            Key=raw_key.replace("raw", "processed", 1),
+            CopySource={'Bucket': BUCKET_NAME, 'Key': raw_key})
+        elif raw_key in SPECIAL_CASE_KEYS:
+            print(f"Processing {raw_key}")
+            processed_key = self._to_processed_key(raw_key, fmt = "tif").replace(".tar", "")
+            directory = os.path.dirname(processed_key)
+            os.makedirs(directory, exist_ok=True)
+            main_process_LOCA(self.s3, BUCKET_NAME, raw_key, processed_key, processed_key)
+            self.s3.upload_file(processed_key, BUCKET_NAME, processed_key)
+        else:
+           self._process_raw_vector_dataset(raw_key)
+    
+    def _process_raw_vector_dataset(self, raw_key: str):
         gdf = self._read_s3_gdf(raw_key)
         gdf = self._reproject(gdf, TARGET_CRS)
         gdf = self._intersect_with_wyoming_boundaries(gdf)
@@ -74,10 +99,32 @@ class Processor:
 
     def is_processed(self, raw_key: str, fmt = "geojson") -> bool:
         return self._to_processed_key(raw_key) in self.processed_keys
+    
+    def _read_layer_from_zipped_gdb(self, raw_key, layer_name):
+        response = self.s3.get_object(Bucket=BUCKET_NAME, Key=raw_key)
+        gdb_zip = io.BytesIO(response['Body'].read())
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            with zipfile.ZipFile(gdb_zip, 'r') as z:
+                z.extractall(tmpdirname)
+                
+            gdb_folder = [f for f in os.listdir(tmpdirname) if f.endswith('.gdb')][0]
+            gdb_path = os.path.join(tmpdirname, gdb_folder) + "/" + layer_name
+            gdf = gpd.read_file(gdb_path)
+            
+            gdf = gdf[gdf.geometry.notnull()]
+            gdf['geometry'] = gdf.geometry.apply(lambda x: x if x.is_valid else x.buffer(0))
+            gdf['geometry'] = gdf.geometry.simplify(tolerance=0.0001)
 
+        return gdf
+    
     def _read_s3_gdf(self, key: str) -> gpd.GeoDataFrame:
-        obj = self.s3.get_object(Bucket=BUCKET_NAME, Key=key)
-        return gpd.read_file(io.BytesIO(obj["Body"].read()))
+
+        if key in GDBs.keys():
+            gdf = self._read_layer_from_zipped_gdb(key, GDBs[key])
+            return gdf
+        else:
+            obj = self.s3.get_object(Bucket=BUCKET_NAME, Key=key)
+            return gpd.read_file(io.BytesIO(obj["Body"].read()))
 
     def _to_processed_key(self, raw_key: str, fmt = "geojson") -> str:
         # 1 => Only replace the first occurrence of 'raw' in the path with 'processed'
@@ -85,6 +132,7 @@ class Processor:
         processed_key = ".".join(processed_key.split(".")[:-1] + [fmt])
 
         return processed_key
+    
     def _intersect_with_wyoming_boundaries(self, gdf: gpd.GeoDataFrame):
         """
         Intersects the GeoDataFrame with Wyoming boundaries to trim excess areas.
@@ -131,7 +179,6 @@ class Processor:
         finally:
             # Clean up the local copy.
             os.remove(key)
-
 
 if __name__ == "__main__":
     Processor().process_raw_datasets()
