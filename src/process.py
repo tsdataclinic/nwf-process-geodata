@@ -2,13 +2,13 @@
 import io
 import os
 import geopandas as gpd
-from src.common import TARGET_CRS, get_s3_client, BUCKET_NAME
+from common import TARGET_CRS, get_s3_client, BUCKET_NAME
 from tqdm import tqdm
 import tempfile
 from rasterio.mask import mask
 import zipfile
 from rasterio.warp import calculate_default_transform, reproject, Resampling
-from src.process_LOCA import main_process_LOCA
+from process_LOCA import main_process_LOCA
 # Permitted suffixes for reading geopandas datasets.
 PERMITTED_SUFFIXES = (".geojson", ".zip", ".tif", ".img", ".tar.gz")
 
@@ -21,31 +21,33 @@ GDBs = {"data/raw/crucial_critical/blm/areas_of_critical_environmental_concern/a
 
 class Processor:
 
-    def __init__(self):
+    def __init__(self, bucket_name=BUCKET_NAME, noupload=False):
         self.s3 = get_s3_client()
         self.wyoming_gdf = self._get_wyoming_gdf()
-        self.raw_keys = self._get_raw_keys()
-        self.processed_keys = self._get_processed_keys()
+        self.bucket_name = bucket_name
+        self.noupload = noupload
+        self.raw_keys = self._get_raw_keys(bucket_name=bucket_name)
+        self.processed_keys = self._get_processed_keys(bucket_name=bucket_name)
 
     def _get_wyoming_gdf(self) -> gpd.GeoDataFrame:
         return gpd.read_file("wyoming.geojson")
 
-    def _get_raw_keys(self) -> list[str]:
-        all_keys = self._get_all_keys()
+    def _get_raw_keys(self, bucket_name=None) -> list[str]:
+        all_keys = self._get_all_keys(bucket_name=bucket_name)
         return [key for key in all_keys if key.startswith("data/raw")]
 
-    def _get_processed_keys(self) -> set[str]:
-        all_keys = self._get_all_keys()
+    def _get_processed_keys(self, bucket_name=None) -> set[str]:
+        all_keys = self._get_all_keys(bucket_name=bucket_name)
         return {key for key in all_keys if key.startswith("data/processed")}
 
-    def _get_all_keys(self) -> list[str]:
+    def _get_all_keys(self, bucket_name=None) -> list[str]:
         """
         Retrieves the keys of the raw datasets from the S3 bucket.
 
         Returns:
         - list[str], the keys of the raw datasets
         """
-        contents = self.s3.list_objects(Bucket=BUCKET_NAME)["Contents"]
+        contents = self.s3.list_objects(Bucket=bucket_name)["Contents"]
         raw_keys = [content["Key"] for content in contents]
         return [key for key in raw_keys if key.endswith(PERMITTED_SUFFIXES)]
 
@@ -74,16 +76,16 @@ class Processor:
         if raw_key.endswith((".img", ".tif")):
            print(f"Copying raster {raw_key}")
            self.s3.copy_object(
-            Bucket=BUCKET_NAME,
+            Bucket=self.bucket_name,
             Key=raw_key.replace("raw", "processed", 1),
-            CopySource={'Bucket': BUCKET_NAME, 'Key': raw_key})
+            CopySource={'Bucket': self.bucket_name, 'Key': raw_key})
         elif raw_key in SPECIAL_CASE_KEYS:
             print(f"Processing {raw_key}")
             processed_key = self._to_processed_key(raw_key, fmt = "tif").replace(".tar", "")
             directory = os.path.dirname(processed_key)
             os.makedirs(directory, exist_ok=True)
-            main_process_LOCA(self.s3, BUCKET_NAME, raw_key, processed_key, processed_key)
-            self.s3.upload_file(processed_key, BUCKET_NAME, processed_key)
+            main_process_LOCA(self.s3, self.bucket_name, raw_key, processed_key, processed_key)
+            self.s3.upload_file(processed_key, self.bucket_name, processed_key)
         else:
            self._process_raw_vector_dataset(raw_key)
     
@@ -101,7 +103,7 @@ class Processor:
         return self._to_processed_key(raw_key) in self.processed_keys
     
     def _read_layer_from_zipped_gdb(self, raw_key, layer_name):
-        response = self.s3.get_object(Bucket=BUCKET_NAME, Key=raw_key)
+        response = self.s3.get_object(Bucket=self.bucket_name, Key=raw_key)
         gdb_zip = io.BytesIO(response['Body'].read())
         with tempfile.TemporaryDirectory() as tmpdirname:
             with zipfile.ZipFile(gdb_zip, 'r') as z:
@@ -123,7 +125,7 @@ class Processor:
             gdf = self._read_layer_from_zipped_gdb(key, GDBs[key])
             return gdf
         else:
-            obj = self.s3.get_object(Bucket=BUCKET_NAME, Key=key)
+            obj = self.s3.get_object(Bucket=self.bucket_name, Key=key)
             return gpd.read_file(io.BytesIO(obj["Body"].read()))
 
     def _to_processed_key(self, raw_key: str, fmt = "geojson") -> str:
@@ -175,11 +177,23 @@ class Processor:
             # Make a local copy.
             gdf.to_file(key, format=fmt)
             # Upload to S3.
-            self.s3.upload_file(key, BUCKET_NAME, key)
+            if self.noupload:
+                self.s3.upload_file(key, self.bucket_name, key)
+                print(f"Uploaded {key} to {self.bucket_name}")
         finally:
+            pass
             # Clean up the local copy.
-            os.remove(key)
+            #os.remove(key)
 
 if __name__ == "__main__":
-    Processor().process_raw_datasets()
+
+    parser = argparse.ArgumentParser(description="Process raw data")
+    parser.add_argument('--s3bucket', type=str, default=BUCKET_NAME,
+                        help="The s3 bucket to use for the pipeline")
+    parser.add_argument('--noupload', action="store_true", default=False,
+                        help="Skip Uploading processed data to s3")
+    inputs = parser.parse_args()
+
+    proc = Processor(bucket_name=inputs.s3bucket, noupload=inputs.noupload)
+    proc.process_raw_datasets()
 

@@ -1,7 +1,7 @@
 import geopandas as gpd
 import pandas as pd
 import os
-from src.common import TARGET_CRS, get_s3_client, BUCKET_NAME
+from common import TARGET_CRS, get_s3_client, BUCKET_NAME
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from io import BytesIO
@@ -15,21 +15,23 @@ from fpdf import FPDF
 
 class DataDocumenter:
 
-    def __init__(self) -> None:
+    def __init__(self, bucket_name=BUCKET_NAME, noupload=False) -> None:
         self.s3 = get_s3_client()
         self.metadata = pd.read_csv("./output_metadata.csv")
         self.metadata = self.metadata.fillna("Not found")
         self.wyoming_area = gpd.read_file("wyoming.geojson").to_crs(32045).area
+        self.bucket_name = bucket_name
+        self.noupload = noupload
 
     def _remove_unsupported_characters(self, text):
         return ''.join([char for char in text if char.encode('latin-1', 'ignore')])
 
     def _read_s3_gdf(self, key: str) -> gpd.GeoDataFrame:
-        obj = self.s3.get_object(Bucket=BUCKET_NAME, Key=key)
+        obj = self.s3.get_object(Bucket=self.bucket_name, Key=key)
         return gpd.read_file(io.BytesIO(obj["Body"].read()))
     
     def _read_s3_raster(self, key: str):
-        obj = self.s3.get_object(Bucket=BUCKET_NAME, Key=key)
+        obj = self.s3.get_object(Bucket=self.bucket_name, Key=key)
 
         with MemoryFile(obj['Body'].read()) as memfile:
             with memfile.open() as src:
@@ -44,7 +46,7 @@ class DataDocumenter:
         Returns:
         - list[str], the keys of the processed datasets
         """
-        contents = self.s3.list_objects(Bucket=BUCKET_NAME, Prefix="data/processed/")["Contents"]
+        contents = self.s3.list_objects(Bucket=self.bucket_name, Prefix="data/processed/")["Contents"]
         processed_keys = [content["Key"] for content in contents]
         return [key for key in processed_keys if key.endswith((".geojson", ".img", ".tif"))]
 
@@ -159,6 +161,7 @@ class DataDocumenter:
 
     def _write_to_pdf(self, pdf, path) -> None:
         pdf.output('./tmp.pdf')
-        self.s3.upload_file('./tmp.pdf', BUCKET_NAME, path)
-        print(f"Wrote documented data to {path}")
+        if not self.noupload:
+            self.s3.upload_file('./tmp.pdf', self.bucket_name, path)
+            print(f"Wrote documented data to {path}")
         os.remove('./tmp.pdf')

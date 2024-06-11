@@ -6,7 +6,7 @@ import botocore
 import json
 import urllib.request
 import os
-from src.common import TARGET_CRS, get_s3_client, BUCKET_NAME
+from common import TARGET_CRS, get_s3_client, BUCKET_NAME
 from tqdm import tqdm
 from zipfile import ZipFile 
 import requests
@@ -15,9 +15,11 @@ from urllib.error import HTTPError
 
 class DataDownloaderUploader:
 
-    def __init__(self):
+    def __init__(self, bucket_name=BUCKET_NAME, noupload=False, overwrite=False):
         self.s3 = get_s3_client()
         self.metadata_df = pd.read_csv("NWF_metadata.csv")
+        self.noupload = noupload
+        self.overwrite = overwrite
 
     def _exists_in_s3(self, key: str) -> bool:
         try:
@@ -102,7 +104,8 @@ class DataDownloaderUploader:
         - local_path: str, the path to the file on the local file system.
         - s3_path: str, the target path in the S3 bucket where the file will be uploaded.
         """
-        self.s3.upload_file(local_path, "dataclinic-nwf", s3_path)
+        if not self.noupload:
+            self.s3.upload_file(local_path, self.bucket_name, s3_path)
         print(f"Successfully uploaded {s3_path}")
         pathlib.Path(local_path).unlink()
 
@@ -149,7 +152,7 @@ class DataDownloaderUploader:
             else None
         )
 
-    def download_and_upload_main(self, overwrite: bool = False) -> None:
+    def download_and_upload_main(self) -> None:
         """
         Takes metadata dataframe and retreives content from "data_link" column
         to upload to s3 bucket.
@@ -171,12 +174,26 @@ class DataDownloaderUploader:
             path: str | None = self._create_path(row)
             if path:
                 self.metadata_df.at[_, "s3_raw_path"] = path
-                if overwrite or not self._exists_in_s3(path):
+                if self.overwrite or not self._exists_in_s3(path):
                     local_path: str | None = self._download_to_local(download_url, path, layer_to_extract)
-                    if local_path:
+                    if local_path and not self.noupload:
                         self._upload_to_s3(local_path, path)
+                        print(f'Uploaded to {path}')
         self.metadata_df.to_csv("output_metadata.csv")
 
 
 if __name__ == "__main__":
-    DataDownloaderUploader().download_and_upload_main()
+
+    parser = argparse.ArgumentParser(description="Download and upload data")
+    parser.add_argument('--s3bucket', type=str, default=BUCKET_NAME,
+                        help="The s3 bucket to use for the pipeline")
+    parser.add_argument('--overwrite', action="store_true", default=False,
+                        help="Overwrite data already processed")
+    parser.add_argument('--noupload', action="store_true", default=False,
+                        help="Skip uploading processed data to s3")
+    inputs = parser.parse_args()
+
+    ddu = DataDownloaderUploader(bucket_name=inputs.s3bucket,
+                                 overwrite=inputs.overwrite,
+                                 noupload=inputs.noupload)
+    ddu.download_and_upload_main()
