@@ -4,8 +4,7 @@ import pandas as pd
 import tarfile
 import io
 import os
-os.chdir("/Users/canyonfoot/Documents/python_proj/nwf-process-geodata")
-from src.common import *
+from common import *
 from rasterio.mask import mask
 from rasterio.io import MemoryFile
 import geopandas as gpd
@@ -100,8 +99,8 @@ def _trim_raster_to_wy(raster_path, trim_path):
     with rasterio.open(trim_path, 'w', **out_meta) as dest:
         dest.write(out_image)
 
-def main_process_LOCA(s3, BUCKET_NAME, tar_gz_key, full_path, trimmed_path):
-    df = _read_LOCA_csv_from_s3_tar_gz(s3, BUCKET_NAME, tar_gz_key, skiprows=1)
+def main_process_LOCA(s3, bucket_name, tar_gz_key, full_path, trimmed_path):
+    df = _read_LOCA_csv_from_s3_tar_gz(s3, bucket_name, tar_gz_key, skiprows=1)
     gdf = _preprocess_LOCA(df)
     _create_raster(gdf,full_path)
     _trim_raster_to_wy(full_path, trimmed_path)
